@@ -18,10 +18,21 @@ function zipPathCompareKey(posixPath: string): string {
   return posixPath.replace(/\\/g, "/").replace(/^\/+/, "").toLowerCase();
 }
 
+/** href 段的百分号解码（EPUB href 是 IRI，如 DuoKan 混淆书的 %2A→*）；解码失败原样返回 */
+function decodeHrefSegment(seg: string): string {
+  if (!seg.includes("%")) return seg;
+  try {
+    return decodeURIComponent(seg);
+  } catch {
+    return seg;
+  }
+}
+
 function resolveInZip(htmlDirInZip: string, href: string): string {
   const pathOnly = href.split("#")[0]!.trim();
   const stack = htmlDirInZip.replace(/^\//, "").split("/").filter(Boolean);
-  for (const seg of pathOnly.split("/")) {
+  for (const rawSeg of pathOnly.split("/")) {
+    const seg = decodeHrefSegment(rawSeg);
     if (seg === "..") {
       if (stack.length > 0) stack.pop();
       continue;

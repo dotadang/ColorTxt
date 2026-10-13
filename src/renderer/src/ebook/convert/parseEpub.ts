@@ -46,10 +46,21 @@ function parseXml(doc: Document, selector: string, attr: string): string | null 
  * 将「当前 XHTML 在 ZIP 内的目录」为基准，解析 href 得到 ZIP 内 posix 路径。
  * 必须用章节所在目录（如 OEBPS/Text），不能用 OPF 目录；否则 ../Images/… 会错到包根下。
  */
+/** href 段的百分号解码（EPUB href 是 IRI，如 DuoKan 混淆书的 %2A→*）；解码失败原样返回 */
+function decodeHrefSegment(seg: string): string {
+  if (!seg.includes("%")) return seg;
+  try {
+    return decodeURIComponent(seg);
+  } catch {
+    return seg;
+  }
+}
+
 function resolveInZip(htmlDirInZip: string, href: string): string {
   const pathOnly = href.split("#")[0]!.trim();
   const stack = htmlDirInZip.replace(/^\//, "").split("/").filter(Boolean);
-  for (const seg of pathOnly.split("/")) {
+  for (const rawSeg of pathOnly.split("/")) {
+    const seg = decodeHrefSegment(rawSeg);
     if (seg === "..") {
       if (stack.length > 0) stack.pop();
       continue;
