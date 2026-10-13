@@ -13,3 +13,7 @@ tmp-*.mjs
 tmp-*.wav
 tmp-*.spx
 tmp-*.png
+
+# 鸿蒙构建产物与本地测试文件
+.hvigor/
+*.epub

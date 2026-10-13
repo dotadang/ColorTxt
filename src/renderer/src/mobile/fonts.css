@@ -1,0 +1,8 @@
+/* 移动端内置字体：与桌面版同一份 KingHwa_OldSong_3.0.ttf（SIL OFL 1.1） */
+@font-face {
+  font-family: "KingHwa OldSong";
+  src: url("./assets/KingHwa_OldSong_3.0.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}

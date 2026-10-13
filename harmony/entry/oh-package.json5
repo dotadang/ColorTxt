@@ -1,0 +1,10 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "彩读鸿蒙版入口模块",
+  "main": "",
+  "author": "ssnangua",
+  "license": "GPL-3.0",
+  "dependencies": {
+  }
+}

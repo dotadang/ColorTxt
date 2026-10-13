@@ -1,0 +1,13 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "colortxt_harmony",
+  "version": "1.0.0",
+  "description": "彩读 ColorTxt 鸿蒙版壳工程",
+  "main": "",
+  "author": "ssnangua",
+  "license": "GPL-3.0",
+  "dependencies": {
+  },
+  "devDependencies": {
+  }
+}

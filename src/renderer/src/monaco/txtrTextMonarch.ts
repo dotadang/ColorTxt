@@ -16,7 +16,7 @@ export type { TxtrMonarchHighlightOptions };
  * 半角 < > 仅作标点（比较符）；全角 ＜ 为开符、未配对的 ＞ 作标点。
  * ‹› 〈〉 «» ﹝﹞ 〔〕 ［］ 与语音朗读过滤一致，按括号配对。
  */
-const PUNCTUATION_CLASS =
+export const PUNCTUATION_CLASS =
   /[,，.。!！?？:：;；、）\]\}｝】〗》＞>〉›»﹞〕］<…—\-]/;
 
 /**
@@ -32,12 +32,12 @@ const LATIN_LETTERS_BMP =
 /** 结合用变音标记（NFD：`a`+U+0301）；跟在拉丁字母后算同一词 */
 const COMBINING_DIACRITIC_BMP = "\\u0300-\\u036F";
 
-const LATIN_WORD = new RegExp(
+export const LATIN_WORD = new RegExp(
   `(?:[${LATIN_LETTERS_BMP}][${COMBINING_DIACRITIC_BMP}]*)+`,
 );
 
 /** ASCII / 全角数字，圈号/括注/罗马数字，以及上标、下标、分数 */
-const NUMBER = new RegExp(
+export const NUMBER = new RegExp(
   "[0-9\\uFF10-\\uFF19" +
     "\\u00B2\\u00B3\\u00B9\\u00BA\\u00BC-\\u00BE" + // ²³¹º¼½¾
     "\\u2070\\u2074-\\u2079\\u207F" + // ⁰⁴⁻⁹ⁿ
@@ -56,7 +56,7 @@ const NUMBER = new RegExp(
  * 不含成对引号/括号开闭符（走标点与子状态）。
  * `ml` / `mol` 仍走字母，避免 html / molecule 被切开。
  */
-const SPECIAL_MARKERS = new RegExp(
+export const SPECIAL_MARKERS = new RegExp(
   "[" +
     "·•▪‥∷*＊✲❈※✿❀" +
     "△▲▽▼○●◇◆□■☆★▷▶◁◀◎◈▣◐◑◮◪" +
