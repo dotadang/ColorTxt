@@ -13,7 +13,11 @@ import {
   chapterTitleForDisplay,
   detectChapterTitle,
 } from "../chapter";
-import { readBookTextChunked, readEpubAsMarkdown } from "./epub";
+import {
+  readBookTextAuto,
+  readBookTextChunked,
+  readEpubAsMarkdown,
+} from "./epub";
 import { colorizeLineToHtml, readerSurface } from "./colorize";
 import {
   type BookMeta,
@@ -58,6 +62,7 @@ const PAGE_GAP = 44; // 页间距 = 2 × 留白（双页模式下即中缝宽）
 const SPREAD_MIN_W = 620; // 视口宽达到该值且横屏时，允许双页
 const pages = ref(1);
 const page = ref(0);
+const totalCols = ref(1);
 const dragX = ref(0);
 /** 阅读锚点：当前视起首段落的序号（翻页/滚动时持续更新，与布局无关） */
 const anchorPara = ref(0);
@@ -68,6 +73,8 @@ let touchStartY = 0;
 let touchDragging = false;
 let touchMoved = false;
 let pendingJumpLastPage = false;
+/** 滚动模式：是否已滚动到章节末尾（控制底部导航显隐） */
+const atChapterEnd = ref(false);
 
 /** 宽视口（折叠屏展开/平板/2in1 横窗）且用户开启时，一屏显示左右两页 */
 function isSpreadNow(w: number, h: number): boolean {
@@ -368,8 +375,8 @@ async function openBook(meta: BookMeta): Promise<void> {
     if (isEpub) {
       text = await readEpubAsMarkdown(meta.name);
     } else {
-      // 大 TXT 也走分块读取（整串跨桥会闪退）
-      text = readBookTextChunked(meta.name);
+      // 大 TXT 也走分块读取（整串跨桥会闪退）；编码自动检测（UTF-8/GBK/Big5）
+      text = readBookTextAuto(meta.name).text;
     }
     if (!text.trim()) {
       // 内容为空：附带诊断数据（文件大小/文件头），用于定位是空文件还是格式问题
@@ -406,6 +413,7 @@ async function openBook(meta: BookMeta): Promise<void> {
     view.value = "reader";
     showBars.value = false; // 进书即沉浸阅读，点中间呼出菜单
     setImmersive(true);
+    atChapterEnd.value = false;
     await nextTick();
     if (isPaged.value) {
       measurePages();
@@ -499,6 +507,11 @@ function savePos(): void {
 let lastSave = 0;
 
 function onScroll(): void {
+  const el = scroller.value;
+  if (el) {
+    atChapterEnd.value =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+  }
   const now = Date.now();
   if (now - lastSave > 800) {
     lastSave = now;
@@ -556,9 +569,14 @@ function measurePages(): void {
       1,
       Math.round((total - PAGE_PAD_X * 2 + PAGE_GAP) / (colW + PAGE_GAP)),
     );
+    totalCols.value = nc;
     pages.value = Math.max(1, Math.ceil(nc / 2));
   } else {
-    pages.value = Math.max(1, Math.round((total - PAGE_PAD_X - colW) / w) + 1);
+    totalCols.value = Math.max(
+      1,
+      Math.round((total - PAGE_PAD_X - colW) / w) + 1,
+    );
+    pages.value = totalCols.value;
   }
   if (page.value > pages.value - 1) page.value = pages.value - 1;
 }
@@ -733,6 +751,7 @@ function gotoChapter(i: number): void {
   savePos();
   ci.value = clamp(i, 0, book.value.spans.length - 1);
   showToc.value = false;
+  atChapterEnd.value = false;
   if (!pendingJumpLastPage) {
     page.value = 0;
     pages.value = 1;
@@ -864,10 +883,10 @@ function toggleBars(): void {
             }"
             v-html="p"
           ></p>
-          <div class="rd-chapter-nav">
-            <button :disabled="ci <= 0" @click.stop="prevChapter">上一章</button>
-            <span class="rd-nav-pos">{{ ci + 1 }} / {{ book.spans.length }}</span>
-            <button :disabled="ci >= book.spans.length - 1" @click.stop="nextChapter">下一章</button>
+          <!-- 滚动模式：章末轻量翻章入口（翻页模式靠继续翻页自然切章） -->
+          <div v-if="!isPaged" class="rd-end-nav">
+            <button v-if="ci > 0" @click.stop="prevChapter">上一章</button>
+            <button v-if="ci < book.spans.length - 1" @click.stop="nextChapter">下一章 ›</button>
           </div>
         </div>
       </main>
@@ -1116,8 +1135,9 @@ button {
 }
 .rd-paged .rd-columns {
   height: 100%;
-  /* 左右 padding 是分页数学的一部分：容器内容宽 = 列宽，页距 = 屏宽 */
-  padding: calc(30px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom));
+  /* 底部 52px 为章节导航预留条（每列一致，导航绝对定位在最后一列的条内）；
+     左右 padding 是分页数学的一部分：容器内容宽 = 列宽，页距 = 屏宽 */
+  padding: calc(30px + env(safe-area-inset-top)) 22px calc(52px + env(safe-area-inset-bottom));
   will-change: transform;
 }
 .rd-columns {
@@ -1191,22 +1211,19 @@ button {
 .reader.font-kinghwa .rd-chapter-title {
   font-family: "KingHwa OldSong", "HarmonyOS Sans SC", serif;
 }
-.rd-chapter-nav {
+.rd-end-nav {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 2.4em;
-  padding-top: 1.2em;
-  border-top: 1px solid var(--m-line);
+  justify-content: center;
+  gap: 28px;
+  margin: 2.2em 0 1em;
 }
-.rd-chapter-nav button {
+.rd-end-nav button {
   font-size: 14px;
-  color: var(--m-accent);
-  padding: 8px 12px;
-}
-.rd-chapter-nav button:disabled {
   color: var(--m-sub);
-  opacity: 0.5;
+  padding: 6px 10px;
+}
+.rd-end-nav button:disabled {
+  opacity: 0.4;
 }
 .rd-nav-pos {
   font-size: 12px;

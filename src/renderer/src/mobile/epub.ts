@@ -4,6 +4,10 @@
  */
 import JSZip from "jszip";
 import { convertEpubToArtifacts } from "../ebook/convert/parseEpub";
+import {
+  detectEncodingLabelFromSample,
+  ENCODING_SAMPLE_BYTES,
+} from "./textEncoding";
 import { bridge } from "./ohosBridge";
 
 /** epub 内部结构诊断：条目数/加密/OPF/spine，用于空内容定位 */
@@ -61,6 +65,35 @@ export function readBookTextChunked(name: string): string {
   }
   out += decoder.decode();
   return out;
+}
+
+export type BookTextResult = { text: string; encoding: string };
+
+/** 分块读取 TXT/MD：自动检测编码（UTF-8/GBK/Big5/UTF-16 等，采样 64KB） */
+export function readBookTextAuto(name: string): BookTextResult {
+  const locale = typeof navigator !== "undefined" ? navigator.language : undefined;
+  let label = "utf-8";
+  const sampleB64 = bridge().readBookChunkBase64(name, 0, ENCODING_SAMPLE_BYTES);
+  if (sampleB64) {
+    label = detectEncodingLabelFromSample(base64ToBytes(sampleB64), locale);
+  }
+  try {
+    new TextDecoder(label);
+  } catch {
+    label = "gb18030"; // ArkWeb 不认识的标签一律回退中文 ANSI 超集
+  }
+  const decoder = new TextDecoder(label);
+  let out = "";
+  let offset = 0;
+  for (;;) {
+    const b64 = bridge().readBookChunkBase64(name, offset, BRIDGE_CHUNK);
+    if (!b64) break;
+    const bytes = base64ToBytes(b64);
+    out += decoder.decode(bytes, { stream: true });
+    offset += bytes.length;
+  }
+  out += decoder.decode();
+  return { text: out, encoding: label };
 }
 
 /** 分块读取沙箱文件的原始字节（epub 等二进制用） */
